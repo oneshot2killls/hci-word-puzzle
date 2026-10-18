@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#3b82c4" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Word Puzzle</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --surface: #ffffff;
+      --ink: #1b2a3a;
+      --muted: #5b6b7c;
+      --line: #d5dee8;
+      --blue: #3b82c4;
+      --blue-dark: #2b6aa3;
+      --blue-soft: #d7ebf8;
+      --good: #1f9d55;
+      --good-bg: #e8f8ee;
+      --bad: #d64545;
+      --bad-bg: #fdecec;
+      --warn: #c05621;
+      --tile: #f8fbfe;
+      --shadow: 0 10px 30px rgba(27, 42, 58, 0.08);
+      --radius: 18px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(1200px 500px at 50% -120px, #d7e9f7 0%, transparent 60%),
+        var(--bg);
+      color: var(--ink);
+      min-height: 100dvh;
+    }
+    button {
+      font: inherit;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .wrap {
+      width: min(440px, 100%);
+      margin: 0 auto;
+      min-height: 100dvh;
+      padding: calc(16px + var(--safe-top)) 16px calc(20px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen { display: none; flex: 1; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .score {
+      display: flex;
+      gap: 10px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+    .score span { color: var(--muted); font-weight: 600; }
+    .score b { color: var(--ink); }
+
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+      padding: 12px 0 24px;
+    }
+    .hero h2 {
+      margin: 0;
+      font-size: clamp(2rem, 8vw, 2.6rem);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+    .rules {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+    .rules li {
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .rules li:last-child { margin-bottom: 0; }
+
+    .primary, .ghost, .tiny {
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-weight: 700;
+    }
+    .primary {
+      background: var(--blue);
+      color: white;
+      width: 100%;
+      font-size: 1.1rem;
+      box-shadow: 0 8px 18px rgba(59, 130, 196, 0.28);
+    }
+    .primary:active { transform: translateY(1px); background: var(--blue-dark); }
+    .ghost {
+      background: var(--surface);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .tiny {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      padding: 12px 10px;
+      font-size: 0.92rem;
+    }
+    .tiny:disabled { opacity: 0.45; }
+
+    .timer-wrap { text-align: center; margin: 4px 0 14px; }
+    .timer {
+      font-size: 2.4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .timer.warn { color: var(--warn); }
+    .timer.danger { color: var(--bad); }
+    .bar {
+      height: 7px;
+      background: #dbe6ef;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 100%;
+      background: var(--blue);
+      transform-origin: left center;
+      transition: transform 0.2s linear, background 0.2s;
+    }
+    .bar.warn > i { background: #e67e22; }
+    .bar.danger > i { background: var(--bad); }
+
+    .answer {
+      background: var(--blue);
+      color: white;
+      min-height: 64px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 12px;
+      letter-spacing: 0.18em;
+      font-size: 1.45rem;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(59, 130, 196, 0.22);
+    }
+    .answer.empty {
+      color: rgba(255,255,255,0.72);
+      letter-spacing: 0.04em;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .slot {
+      width: 1.15em;
+      text-align: center;
+    }
+
+    .tiles {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 18px 0 16px;
+      min-height: 56px;
+    }
+    .tile {
+      flex: 1 1 0;
+      max-width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      border: 1px solid #c5d3e0;
+      background: var(--tile);
+      color: var(--ink);
+      font-size: 1.35rem;
+      font-weight: 700;
+      box-shadow: 0 1px 0 #fff inset, 0 6px 12px rgba(27, 42, 58, 0.05);
+    }
+    .tile:active { transform: scale(0.96); }
+    .tile.used {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .controls { display: flex; gap: 8px; }
+
+    .feedback {
+      margin-top: 16px;
+      min-height: 74px;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 700;
+    }
+    .feedback.show { display: flex; }
+    .feedback.good { background: var(--good-bg); color: var(--good); }
+    .feedback.bad { background: var(--bad-bg); color: var(--bad); }
+    .feedback small {
+      display: block;
+      font-weight: 600;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .credit {
+      margin-top: auto;
+      padding-top: 18px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .host-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px 18px 18px;
+      text-align: center;
+    }
+    .host-card img {
+      width: min(280px, 70vw);
+      height: auto;
+      background: white;
+      border-radius: 12px;
+    }
+    .host-card h2 { margin: 0 0 8px; }
+    .host-url {
+      margin: 14px 0 0;
+      word-break: break-all;
+      color: var(--blue-dark);
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section id="start" class="screen active">
+      <div class="brand"><h1>Word Puzzle</h1></div>
+      <div class="hero">
+        <h2>Unscramble the word.</h2>
+        <p>Tap the letters in the right order. Use every letter once.</p>
+        <ul class="rules">
+          <li>45 seconds per puzzle</li>
+          <li>A new word appears after each try</li>
+          <li>Play as long as you like</li>
+        </ul>
+      </div>
+      <button class="primary" id="start-btn" type="button">Start</button>
+      <p class="credit">Interactive demo of the word-puzzle task in Kosch, Welsch, Chuang &amp; Schmidt (2022).</p>
+    </section>
+
+    <section id="game" class="screen">
+      <div class="brand">
+        <h1>Word Puzzle</h1>
+        <div class="score">
+          <div><span>Score</span> <b id="score">0</b></div>
+          <div><span>Streak</span> <b id="streak">0</b></div>
+        </div>
+      </div>
+      <div class="timer-wrap">
+        <div class="timer" id="timer">45</div>
+        <div class="bar" id="bar"><i id="bar-fill"></i></div>
+      </div>
+      <div class="answer empty" id="answer">Tap letters below</div>
+      <div class="tiles" id="tiles"></div>
+      <div class="controls">
+        <button class="tiny" id="undo-btn" type="button">Undo</button>
+        <button class="tiny" id="shuffle-btn" type="button">Shuffle</button>
+        <button class="tiny" id="skip-btn" type="button">Skip</button>
+      </div>
+      <div class="feedback" id="feedback"></div>
+    </section>
+
+    <section id="host" class="screen">
+      <div class="brand"><h1>Class QR</h1></div>
+      <div class="host-card">
+        <h2>Scan to play</h2>
+        <p>Point your camera at this code to open the word puzzle.</p>
+        <img id="qr" alt="QR code for the word puzzle" />
+        <p class="host-url" id="host-url"></p>
+      </div>
+      <div style="height:14px"></div>
+      <a class="primary" id="play-here" href="./" style="text-align:center; text-decoration:none;">Play here</a>
+    </section>
+  </div>
+
+  <script>
+    const WORDS = [
+      "ABLE","ACID","AGED","AREA","ARMY","AWAY","BABY","BACK","BALL","BAND",
+      "BANK","BASE","BATH","BEAR","BEAT","BIRD","BLOW","BLUE","BOAT","BODY",
+      "BONE","BOOK","BORN","BOTH","CITY","CLUB","COAL","COAT","CODE","COLD",
+      "COME","COOK","COOL","CORN","COST","DARK","DATE","DEAL","DEEP","DESK",
+      "DOOR","DOWN","DRAW","DREAM","DROP","DUST","EACH","EARN","EAST","EASY",
+      "EDGE","ELSE","EVEN","EVER","FACE","FACT","FAIR","FALL","FARM","FAST",
+      "FEAR","FEEL","FILE","FILL","FILM","FIND","FINE","FIRE","FISH","FLAT",
+      "FLOW","FOOD","FOOT","FORD","FORM","FORT","GAME","GATE","GIFT","GIRL",
+      "GIVE","GLAD","GOAL","GOLD","GONE","GOOD","GRAB","GROW","HAIR","HALF",
+      "HALL","HAND","HANG","HARD","HARM","HEAD","HEAR","HEAT","HELD","HELP",
+      "HERE","HIDE","HIGH","HILL","HOLD","HOLE","HOME","HOPE","HOST","HOUR",
+      "HUGE","HUNT","HURT","IDEA","IRON","ITEM","JOIN","JUMP","KEEP","KICK",
+      "KIND","KING","KITE","KNOW","LACK","LADY","LAKE","LAMP","LAND","LANE",
+      "LAST","LATE","LEAD","LEAF","LEFT","LEND","LIFE","LIFT","LIKE","LINE",
+      "LINK","LIST","LIVE","LOAD","LOAN","LOCK","LONG","LOOK","LORD","LOSE",
+      "LOSS","LOUD","LOVE","LUCK","MADE","MAIL","MAIN","MAKE","MALE","MALL",
+      "MANY","MARK","MEAL","MEAN","MEAT","MEET","MILE","MILK","MIND","MINE",
+      "MISS","MOON","MORE","MOST","MOVE","MUCH","MUST","NAME","NEAR","NECK",
+      "NEED","NEWS","NEXT","NICE","NOSE","NOTE","OPEN","OVEN","OVER","PACE",
+      "PACK","PAGE","PAID","PAIN","PAIR","PALM","PARK","PART","PASS","PAST",
+      "PATH","PEAK","PICK","PILE","PINE","PINK","PLAN","PLAY","PLOT","PLUS",
+      "POEM","POLE","POND","POOL","POOR","PORT","POST","POUR","PRAY","PULL",
+      "PURE","PUSH","RACE","RAIN","RANK","RARE","RATE","READ","REAL","REST",
+      "RICE","RICH","RIDE","RING","RISE","RISK","ROAD","ROCK","ROLE","ROLL",
+      "ROOF","ROOM","ROOT","ROPE","ROSE","RULE","SAFE","SAIL","SALE","SALT",
+      "SAME","SAND","SAVE","SEAT","SEED","SEEK","SEEM","SELF","SELL","SEND",
+      "SHIP","SHOE","SHOP","SHOT","SHOW","SHUT","SICK","SIDE","SIGN","SILK",
+      "SING","SINK","SITE","SIZE","SKIN","SKIP","SLOW","SNOW","SOFT","SOIL",
+      "SOLD","SOME","SONG","SOON","SORT","SOUL","SOUP","SPIN","SPOT","STAR",
+      "STAY","STOP","SUCH","SUIT","SURE","SWIM","TALE","TALK","TALL","TANK",
+      "TAPE","TASK","TEAM","TELL","TEND","TERM","TEST","TEXT","THAN","THAT",
+      "THEM","THEN","THEY","THIN","THIS","THUS","TIDE","TILE","TIME","TINY",
+      "TIRE","TONE","TOOK","TOOL","TOUR","TOWN","TREE","TRIP","TRUE","TUNE",
+      "TURN","TYPE","UNIT","UPON","USED","USER","VARY","VAST","VIEW","VOTE",
+      "WAIT","WALK","WALL","WANT","WARM","WARN","WASH","WAVE","WEAK","WEAR",
+      "WEEK","WELL","WENT","WEST","WHAT","WHEN","WHOM","WIDE","WIFE","WILD",
+      "WILL","WIND","WINE","WING","WIRE","WISE","WISH","WITH","WOOD","WORD",
+      "WORK","YARD","YEAR","YOUR",
+      "APPLE","BEACH","BREAD","BRICK","BRUSH","CABLE","CHAIR","CHARM","CHEST",
+      "CIVIL","CLAIM","CLASS","CLEAN","CLEAR","CLIMB","CLOCK","CLOUD","COAST",
+      "COLOR","CORAL","COUNT","COURT","CRAFT","CRANE","CREAM","CRISP","CROWD",
+      "CROWN","DANCE","DREAM","DRINK","DRIVE","EARTH","EMPTY","ENJOY","EQUAL",
+      "EVENT","EVERY","EXACT","FAITH","FIELD","FLAME","FLASH","FLIGHT","FLOOR",
+      "FOCUS","FORCE","FRAME","FRESH","FRUIT","GLASS","GRACE","GRAIN","GRAND",
+      "GRAPE","GRASS","GREEN","GROUP","GUARD","GUEST","GUIDE","HEART","HONEY",
+      "HORSE","HOTEL","HOUSE","HUMAN","IMAGE","INDEX","INPUT","ISSUE","JEWEL",
+      "JUDGE","KNIFE","LABEL","LARGE","LAUGH","LEARN","LEMON","LEVEL","LIGHT",
+      "LIMIT","LOCAL","LUCKY","LUNCH","MAGIC","MAPLE","MARCH","MATCH","METAL",
+      "MINOR","MODEL","MONEY","MONTH","MOTOR","MOUTH","MUSIC","NIGHT","NOISE",
+      "NORTH","NOVEL","NURSE","OCEAN","OFFER","OLIVE","ONION","OPERA","ORDER",
+      "ORGAN","OTHER","PAINT","PAPER","PARTY","PEACE","PHASE","PHONE","PHOTO",
+      "PIANO","PILOT","PITCH","PLACE","PLAIN","PLANT","PLATE","POINT","POWER",
+      "PRESS","PRICE","PRIDE","PRIME","PRINT","PRIZE","PROOF","PROUD","PUPIL",
+      "QUEEN","QUICK","QUIET","RADIO","RAINY","RANGE","RAPID","RATIO","REACH",
+      "REACT","READY","RIVER","ROBOT","ROUND","ROUTE","SCALE","SCENE","SCOPE",
+      "SCORE","SENSE","SHADE","SHARE","SHARP","SHEET","SHELF","SHIFT","SHINE",
+      "SHIRT","SHOCK","SHORT","SIGHT","SKILL","SLEEP","SLICE","SMALL","SMART",
+      "SMILE","SMOKE","SOLID","SOLVE","SOUND","SOUTH","SPACE","SPEAK","SPEED",
+      "SPEND","SPLIT","SPORT","STAGE","STAIR","STAKE","STAND","STEAM","STEEL",
+      "STICK","STILL","STONE","STORE","STORM","STORY","SUGAR","SWEET","TABLE",
+      "TASTE","TEACH","THANK","THEME","THICK","THING","THINK","THORN","TIGER",
+      "TITLE","TOAST","TODAY","TOOTH","TOUCH","TOWER","TRACE","TRACK","TRADE",
+      "TRAIN","TREAT","TREND","TRIAL","TRICK","TROOP","TRUST","TRUTH","UNCLE",
+      "UNION","UNITY","URBAN","USUAL","VALUE","VIDEO","VIRUS","VISIT","VITAL",
+      "VOICE","WASTE","WATCH","WATER","WHEAT","WHITE","WHOLE","WOMAN","WORLD",
+      "WORRY","WORTH","WOULD","WOUND","WRITE","WRONG","YOUTH",
+      "ANIMAL","BOTTLE","BRIDGE","BRIGHT","BUTTON","CAMERA","CANDLE","CASTLE",
+      "CENTER","CHANGE","CHARGE","CHOICE","CIRCLE","CLIENT","CLOUDY","COFFEE",
+      "COLLAR","COMBAT","COMMON","COPPER","CORNER","COTTON","COURSE","COUSIN",
+      "CREATE","CREDIT","CRISIS","CUSTOM","DANGER","DECADE","DECIDE","DEMAND",
+      "DESIGN","DETAIL","DEVICE","DINNER","DOCTOR","DOUBLE","DRAGON","DRIVER",
+      "DURING","EFFECT","EITHER","ENERGY","ENGINE","ENOUGH","ESCAPE","EXPAND",
+      "EXPECT","EXPERT","FABRIC","FACTOR","FAMILY","FAMOUS","FARMER","FATHER",
+      "FIGURE","FINGER","FLIGHT","FLOWER","FOREST","FORGET","FORMAL","FRIEND",
+      "FUTURE","GARDEN","GATHER","GENTLE","GLOBAL","GOLDEN","GROUND","GROWTH",
+      "GUITAR","HANDLE","HAPPEN","HEALTH","HEAVEN","HEIGHT","HIDDEN","HOLDER",
+      "HUNGER","HUNTER","IMPACT","IMPORT","INCOME","INDEED","INSECT","INSIDE",
+      "ISLAND","ITSELF","JACKET","JUNGLE","JUNIOR","KERNEL","KITCHEN","LAPTOP",
+      "LAUNCH","LAWYER","LEADER","LEAGUE","LENGTH","LESSON","LETTER","LIKELY",
+      "LISTEN","LITTLE","LIVING","LOCATE","LOVELY","LUMBER","MAGNET","MANAGE",
+      "MANNER","MARBLE","MARKET","MASTER","MATTER","MEDIUM","MEMBER","MEMORY",
+      "MENTAL","METHOD","MIDDLE","MINUTE","MIRROR","MOBILE","MODERN","MOMENT",
+      "MOTHER","MOTION","MUSCLE","MUSEUM","NARROW","NATION","NATIVE","NATURE",
+      "NEARBY","NICKEL","NORMAL","NOTICE","NUMBER","OBJECT","OFFICE","ONLINE",
+      "ORANGE","ORIGIN","OUTPUT","PARENT","PEOPLE","PERSON","PENCIL","PEPPER",
+      "PERIOD","PERMIT","PLANET","PLAYER","PLEASE","POCKET","POLICE","POLICY",
+      "POLITE","PROFIT","PROPER","PUBLIC","PURPLE","PUZZLE","RABBIT","RANDOM",
+      "RARELY","READER","REASON","RECENT","RECORD","REDUCE","REGION","RELATE",
+      "RELIEF","REMAIN","REMOTE","REPAIR","REPEAT","REPORT","RESCUE","RESULT",
+      "RETURN","REVEAL","REVIEW","RHYTHM","RIBBON","ROCKET","RUBBER","RUNNER",
+      "SACRED","SAFETY","SALARY","SAMPLE","SAVING","SCHOOL","SCREEN","SEARCH",
+      "SEASON","SECOND","SECRET","SECTION","SELECT","SENIOR","SERIAL","SERIES",
+      "SERVER","SETTLE","SHADOW","SHOULD","SIGNAL","SILENT","SILVER","SIMPLE",
+      "SINGLE","SISTER","SMOOTH","SOCIAL","SOCKET","SOURCE","SPIRIT","SPREAD",
+      "SPRING","SQUARE","STABLE","STAPLE","STATUS","STREAM","STREET","STRIKE",
+      "STRING","STROKE","STRONG","STUDIO","SUBMIT","SUDDEN","SUFFER","SUMMER",
+      "SUPPLY","SURELY","SURVEY","SWITCH","SYMBOL","SYSTEM","TARGET","TEMPLE",
+      "TENDER","THEORY","THIRTY","THOUGHT","THREAD","THRONE","TICKET","TIMBER",
+      "TISSUE","TOMATO","TONGUE","TRAVEL","TUNNEL","TURNED","TWELVE","TWENTY",
+      "UNIQUE","UNITED","UNLESS","UPDATE","USEFUL","VALLEY","VENDOR","VERBAL",
+      "VESSEL","VICTIM","VIOLET","VISION","VISUAL","VOLUME","WALNUT","WALLET",
+      "WANDER","WEALTH","WEAPON","WEEKLY","WEIGHT","WHEAT","WINDOW","WINTER",
+      "WISDOM","WONDER","WOODEN","WORKER","WRITER","YELLOW",
+      "ABILITY","ACCOUNT","ADDRESS","ANOTHER","ARTICLE","BALANCE","BATTERY",
+      "BECAUSE","BEDROOM","BELIEVE","BENEATH","BENEFIT","BETWEEN","BICYCLE",
+      "BIOLOGY","BLANKET","BROTHER","CABINET","CAPITAL","CAPTAIN","CAPTURE",
+      "CAREFUL","CENTRAL","CENTURY","CERTAIN","CHAMBER","CHANNEL","CHAPTER",
+      "CHARITY","CHICKEN","CIRCUIT","CITIZEN","CLASSIC","CLIMATE","CLOSELY",
+      "CLOTHES","COLLECT","COLLEGE","COMBINE","COMFORT","COMMAND","COMMENT",
+      "COMPANY","COMPARE","COMPETE","COMPLEX","CONCEPT","CONCERN","CONCERT",
+      "CONDUCT","CONFIRM","CONNECT","CONTACT","CONTAIN","CONTENT","CONTEST",
+      "CONTEXT","CONTROL","CONVERT","COOKING","CORRECT","COTTAGE","COUNCIL",
+      "COUNTER","COUNTRY","COURAGE","CRYSTAL","CULTURE","CURRENT","DECLINE",
+      "DEFAULT","DELIVER","DENSITY","DEPOSIT","DESKTOP","DESPITE","DEVELOP",
+      "DIAMOND","DIGITAL","DISCUSS","DISEASE","DISPLAY","DISTANT","DIVERSE",
+      "DRAWING","EASTERN","ECONOMY","EDITION","EDUCATE","ELASTIC","ELDERLY",
+      "ELEGANT","ELEMENT","EMOTION","EMPEROR","ENGLISH","ENHANCE","EPISODE",
+      "EVENING","EXACTLY","EXAMPLE","EXCITED","EXPLAIN","EXPLORE","EXPRESS",
+      "FACTORY","FAILURE","FANTASY","FASHION","FEATURE","FEDERAL","FEELING",
+      "FICTION","FINANCE","FINDING","FISHING","FITNESS","FOREIGN","FOREVER",
+      "FORMULA","FORTUNE","FORWARD","FREEDOM","FRIENDLY","FURTHER","GALLERY",
+      "GENERAL","GENETIC","GENUINE","GEOLOGY","GLASS","GROCERY","HABITAT",
+      "HAPPILY","HEADING","HEALTHY","HEARING","HELPFUL","HERSELF","HIGHWAY",
+      "HIMSELF","HISTORY","HOLIDAY","HONESTY","HOWEVER","HUNDRED","HUNTING",
+      "HUSBAND","IMAGINE","IMPROVE","INCLUDE","INITIAL","INQUIRE","INSIGHT",
+      "INSPIRE","INSTALL","INSTEAD","INTERIM","ISLANDS","JOURNAL","JOURNEY",
+      "JUSTICE","KITCHEN","LANDING","LANGUAGE","LARGEST","LASTING","LEADING",
+      "LEATHER","LECTURE","LEISURE","LIBERAL","LIBRARY","LICENSE","LIMITED",
+      "LOGICAL","LOYALTY","MACHINE","MANAGER","MARRIED","MASSIVE","MAXIMUM",
+      "MEANING","MEASURE","MEDICAL","MEETING","MENTION","MESSAGE","MINERAL",
+      "MINIMAL","MINIMUM","MIRACLE","MISSING","MISSION","MISTAKE","MIXTURE",
+      "MONITOR","MORNING","MUSICAL","NATURAL","NEITHER","NETWORK","NEUTRAL",
+      "NOTHING","NOWHERE","NUCLEAR","OBSERVE","OBVIOUS","OCTOBER","OFFENSE",
+      "OFFICER","OLYMPIC","ONGOING","OPENING","OPERATE","OPINION","ORGANIC",
+      "OUTCOME","OUTDOOR","OUTLINE","OUTSIDE","OVERALL","PACKAGE","PAINFUL",
+      "PARTIAL","PARTNER","PASSAGE","PASSING","PASSION","PATIENT","PATTERN",
+      "PAYMENT","PENALTY","PENDING","PERCENT","PERFECT","PERFORM","PERHAPS",
+      "PICTURE","PIONEER","PLASTIC","POPULAR","PORTION","POSSESS","POVERTY",
+      "PRECISE","PREDICT","PREMIUM","PREPARE","PRESENT","PREVENT","PRIMARY",
+      "PRINTER","PRIVACY","PRIVATE","PROBLEM","PROCESS","PRODUCE","PRODUCT",
+      "PROFESS","PROFILE","PROGRAM","PROJECT","PROMISE","PROMOTE","PROTECT",
+      "PROTEIN","PROTEST","PROVIDE","PURPOSE","PUSHING","QUALIFY","QUALITY",
+      "QUARTER","RADICAL","RAILWAY","READILY","READING","REALITY","REALIZE",
+      "RECEIPT","RECEIVE","RECOVER","REFLECT","REFORM","REFUGEE","REGULAR",
+      "RELATED","RELEASE","REMAINS","REMOVAL","REPLACE","REQUEST","REQUIRE",
+      "RESERVE","RESPECT","RESPOND","RESTORE","RETIRED","REVENUE","REVERSE",
+      "ROUTINE","RUNNING","SAILING","SATISFY","SCIENCE","SECTION","SECURE",
+      "SEGMENT","SERIOUS","SERVANT","SERVICE","SESSION","SETTING","SEVENTH",
+      "SEVERAL","SHALLOW","SHARING","SHELTER","SHORTLY","SILENCE","SIMILAR",
+      "SITTING","SKILLED","SOCIETY","SOMEHOW","SOMEONE","SPEAKER","SPECIAL",
+      "STATION","STORAGE","STRANGE","STRETCH","STUDENT","STUDIED","SUBJECT",
+      "SUCCESS","SUGGEST","SUMMARY","SUPPORT","SUPPOSE","SUPREME","SURFACE",
+      "SURGERY","SURPLUS","SURVIVE","SUSPECT","SUSTAIN","TEACHER","TENSION",
+      "THEATER","THERAPY","THEREBY","THOUGHT","THROUGH","THUNDER","TIRED",
+      "TONIGHT","TOTALLY","TOURISM","TOWARDS","TRAFFIC","TRAINED","TRANSIT",
+      "TREASURE","TRIANGLE","TRIGGER","TWILIGHT","TYPICAL","UNIFORM","UNKNOWN",
+      "UNUSUAL","USUALLY","UTILITY","VARIETY","VARIOUS","VEHICLE","VENTURE",
+      "VERSION","VICTORY","VILLAGE","VIRTUAL","VISIBLE","VISITOR","WAITING",
+      "WALKING","WANTING","WARNING","WEATHER","WEBSITE","WEEKEND","WELCOME",
+      "WESTERN","WHEREAS","WHETHER","WILLING","WINNING","WITHOUT","WORKING",
+      "WRITING","WRITTEN"
+    ];
+
+    const POOL = [...new Set(WORDS)].filter((w) => w.length >= 4 && w.length <= 7);
+    const WORD_SET = new Set(POOL);
+    const LIMIT = 45;
+
+    const startScreen = document.getElementById("start");
+    const gameScreen = document.getElementById("game");
+    const hostScreen = document.getElementById("host");
+    const tilesEl = document.getElementById("tiles");
+    const answerEl = document.getElementById("answer");
+    const timerEl = document.getElementById("timer");
+    const barEl = document.getElementById("bar");
+    const barFill = document.getElementById("bar-fill");
+    const feedbackEl = document.getElementById("feedback");
+    const scoreEl = document.getElementById("score");
+    const streakEl = document.getElementById("streak");
+
+    let bag = [];
+    let current = "";
+    let tiles = [];
+    let picked = [];
+    let locked = false;
+    let remaining = LIMIT;
+    let tickId = 0;
+    let startedAt = 0;
+    let score = 0;
+    let streak = 0;
+    let lastWord = "";
+
+    function shuffle(list) {
+      const copy = list.slice();
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function scramble(word) {
+      let letters = word.split("");
+      if (letters.length < 2) return letters;
+      let mixed;
+      let guard = 0;
+      do {
+        mixed = shuffle(letters);
+        guard += 1;
+      } while (mixed.join("") === word && guard < 20);
+      return mixed;
+    }
+
+    function nextWord() {
+      if (bag.length === 0) {
+        bag = shuffle(POOL.filter((w) => w !== lastWord));
+      }
+      current = bag.pop();
+      lastWord = current;
+      gameScreen.dataset.word = current;
+      tiles = scramble(current).map((letter, id) => ({ id, letter, used: false }));
+      picked = [];
+      locked = false;
+      remaining = LIMIT;
+      startedAt = performance.now();
+      feedbackEl.className = "feedback";
+      feedbackEl.innerHTML = "";
+      render();
+      startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(tickId);
+      tickId = setInterval(() => {
+        const elapsed = (performance.now() - startedAt) / 1000;
+        remaining = Math.max(0, LIMIT - elapsed);
+        renderTimer();
+        if (remaining <= 0) finish("timeout");
+      }, 100);
+    }
+
+    function renderTimer() {
+      const secs = Math.ceil(remaining);
+      timerEl.textContent = String(secs);
+      const ratio = remaining / LIMIT;
+      barFill.style.transform = `scaleX(${ratio})`;
+      timerEl.className = "timer";
+      barEl.className = "bar";
+      if (secs <= 5) {
+        timerEl.classList.add("danger");
+        barEl.classList.add("danger");
+      } else if (secs <= 10) {
+        timerEl.classList.add("warn");
+        barEl.classList.add("warn");
+      }
+    }
+
+    function render() {
+      renderTimer();
+      if (picked.length === 0) {
+        answerEl.className = "answer empty";
+        answerEl.textContent = "Tap letters below";
+      } else {
+        answerEl.className = "answer";
+        answerEl.innerHTML = picked.map((p) => `<span class="slot">${p.letter}</span>`).join("");
+      }
+      tilesEl.innerHTML = "";
+      tiles.forEach((tile) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tile" + (tile.used ? " used" : "");
+        btn.textContent = tile.letter;
+        btn.dataset.id = String(tile.id);
+        btn.disabled = locked || tile.used;
+        btn.addEventListener("click", () => pick(tile.id));
+        tilesEl.appendChild(btn);
+      });
+    }
+
+    function pick(id) {
+      if (locked) return;
+      const tile = tiles.find((t) => t.id === id);
+      if (!tile || tile.used) return;
+      tile.used = true;
+      picked.push(tile);
+      render();
+      if (picked.length === tiles.length) finish("complete");
+    }
+
+    function undo() {
+      if (locked || picked.length === 0) return;
+      const tile = picked.pop();
+      tile.used = false;
+      render();
+    }
+
+    function reshuffle() {
+      if (locked) return;
+      const unused = tiles.filter((t) => !t.used);
+      const mixed = scramble(unused.map((t) => t.letter).join(""));
+      unused.forEach((tile, i) => { tile.letter = mixed[i]; });
+      render();
+    }
+
+    function isValid(guess) {
+      const sortedGuess = guess.split("").sort().join("");
+      const sortedTarget = current.split("").sort().join("");
+      if (sortedGuess !== sortedTarget) return false;
+      return WORD_SET.has(guess);
+    }
+
+    function finish(reason) {
+      if (locked) return;
+      locked = true;
+      clearInterval(tickId);
+      const guess = picked.map((p) => p.letter).join("");
+      const correct = reason === "complete" && isValid(guess);
+      if (correct) {
+        score += 1;
+        streak += 1;
+        feedbackEl.className = "feedback show good";
+        feedbackEl.innerHTML = `<div>Correct<small>${guess}</small></div><div>+1</div>`;
+      } else {
+        streak = 0;
+        const label = reason === "timeout" ? "Time is up" : reason === "skip" ? "Skipped" : "Not a match";
+        feedbackEl.className = "feedback show bad";
+        feedbackEl.innerHTML = `<div>${label}<small>The word was ${current}</small></div>`;
+      }
+      scoreEl.textContent = String(score);
+      streakEl.textContent = String(streak);
+      render();
+      setTimeout(nextWord, correct ? 900 : 1400);
+    }
+
+    function show(id) {
+      document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    document.getElementById("start-btn").addEventListener("click", () => {
+      score = 0;
+      streak = 0;
+      scoreEl.textContent = "0";
+      streakEl.textContent = "0";
+      show("game");
+      nextWord();
+    });
+    document.getElementById("undo-btn").addEventListener("click", undo);
+    document.getElementById("shuffle-btn").addEventListener("click", reshuffle);
+    document.getElementById("skip-btn").addEventListener("click", () => finish("skip"));
+
+    document.addEventListener("keydown", (event) => {
+      if (!gameScreen.classList.contains("active") || locked) return;
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        undo();
+        return;
+      }
+      const letter = event.key.toUpperCase();
+      if (!/^[A-Z]$/.test(letter)) return;
+      const tile = tiles.find((t) => !t.used && t.letter === letter);
+      if (tile) pick(tile.id);
+    });
+
+    const params = new URLSearchParams(location.search);
+    if (params.has("host") || location.hash === "#host") {
+      const playUrl = location.origin + location.pathname;
+      document.getElementById("host-url").textContent = playUrl;
+      document.getElementById("qr").src =
+        "https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=" +
+        encodeURIComponent(playUrl);
+      document.getElementById("play-here").href = playUrl;
+      show("host");
+    }
+  </script>
+</body>
+</html>
